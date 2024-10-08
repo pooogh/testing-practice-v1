@@ -21,7 +21,60 @@ const setObject = (member) => {
       ? data.item.push(member) : data.alive.push(member);
   updateJSON(data);
 };
-// setTribe();
+
+const backToClass = (nameToFind) => {
+  const data = readData();
+  const keys = Object.keys(data);
+  const found = keys.map((key) => data[key].filter(({ name }) => name === nameToFind)).flat().at(0);
+  // console.log(found);
+  let classObj;
+  switch (found.className) {
+    case 'TumbaUmba':
+      classObj = new TumbaUmba(nameToFind);
+      break;
+    case 'SigmaBoss':
+      classObj = new SigmaBoss(nameToFind);
+      break;
+    case 'Tool':
+      classObj = new Tool(nameToFind);
+      break;
+    case 'Weapon':
+      classObj = new Weapon(nameToFind);
+      break;
+    default:
+      classObj = new BattleDog(nameToFind);
+      break;
+  }
+
+  const entries = Object.entries(found);
+  entries.forEach(([key, value]) => {
+    classObj[key] = _.isObject(value)
+      ? value.map((item) => backToClass(item.name))
+      : value;
+  });
+  return classObj;
+};
+
+const editObject = (member) => {
+  const data = readData();
+  let keyToFind;
+  switch (member.className) {
+    case 'Tool':
+    case 'Weapon':
+      keyToFind = 'item';
+      break;
+    case 'BattleDog':
+      keyToFind = 'dog';
+      break;
+    default:
+      keyToFind = 'alive';
+      break;
+  }
+  const filtered = data[keyToFind].filter(({ name }) => name !== member.name);
+  filtered.push(member);
+  data[keyToFind] = filtered;
+  updateJSON(data);
+};
 
 const addItem = () => {
   const data = readData();
@@ -29,7 +82,7 @@ const addItem = () => {
   const listOfNames = data.alive.map(({ name }) => name);
   const indexOfName = readlineSync.keyInSelect(listOfNames, 'Кому добавляем: ');
 
-  const person = data.alive.at(indexOfName);
+  let person = data.alive.at(indexOfName);
   let item;
   if (person.className === 'SigmaBoss') {
     const listOfItems = data.item.map(({ name }) => name);
@@ -42,16 +95,25 @@ const addItem = () => {
       const indexOfDog = readlineSync.keyInSelect(listOfDogs, 'Кого добавляем: ');
       item = data.dog.at(indexOfDog);
     } else {
-      const listOfTools = data.item.filter(({className}) => className === 'Tool');
-      const listOfToolNames = listOfTools.map(({name}) => name);
+      const listOfTools = data.item.filter(({ className }) => className === 'Tool');
+      const listOfToolNames = listOfTools.map(({ name }) => name);
       const indexOfTool = readlineSync.keyInSelect(listOfToolNames, 'Что добавляем: ');
       item = listOfTools.at(indexOfTool);
     }
   }
-
-
+  person = backToClass(person.name);
+  item = backToClass(item.name);
+  if (person.className === 'SigmaBoss') {
+    person.addWeapon(item);
+  } else if (item.className === 'BattleDog') {
+    person.addDog(item);
+  } else {
+    person.addTools(item);
+  }
+  editObject(person);
+  // updateJSON();
 };
-// ф-ция, которая терминально создает объект класса и сохраняет его
+
 const createData = () => {
   const classes = ['SigmaBoss', 'TumbaUmba', 'Tool', 'Weapon', 'BattleDog'];
   const index = readlineSync.keyInSelect(classes, 'Кого создаем? ');
@@ -86,17 +148,8 @@ const createData = () => {
   setObject(classObj);
   return true;
 };
-// изменение данных о состоянии объекта
-const editTribe = (member) => {
-  const data = readData();
-  const filtered = data.alive.filter(({ name }) => name !== member.name);
-  filtered.push(member);
-  data.alive = filtered;
-  updateJSON(data);
-};
 
-// удаление объекта
-const setDeadTribe = (member) => {
+const moveToDead = (member) => {
   const data = readData();
   const filtered = data.alive.filter(({ name }) => name !== member.name);
   data.alive = filtered;
@@ -104,46 +157,6 @@ const setDeadTribe = (member) => {
   updateJSON(data);
 };
 
-// возвращаем объект json в объект класса
-const backToClass = (nameToFind) => {
-  const data = readData();
-  const objEntries = Object.entries(data);
-  // [['alive', []], ['item', []]]
-  // подумать
-  // что возвращает .find(), если не находит вхождение?
-  const found = objEntries.forEach(([, value]) => value.find((name) => name === nameToFind));
-  // const found = data.find(({ name }) => name === nameToFind);
-  let classObj;
-  switch (found.className) {
-    case 'TumbaUmba':
-      classObj = new TumbaUmba(nameToFind);
-      break;
-    case 'SigmaBoss':
-      classObj = new SigmaBoss(nameToFind);
-      break;
-    case 'Tool':
-      classObj = new Tool(nameToFind);
-      break;
-    case 'Weapon':
-      classObj = new Weapon(nameToFind);
-      break;
-    default:
-      classObj = new BattleDog(nameToFind);
-      break;
-  }
-  const entries = Object.entries(found);
-  // [[k1, v1], [k2, v2]]
-  // for ([key, value] of entries) {
-  //   if (_.isObject(value)) {
-  //     classObj[key] = value.map((item) => backToClass(item));
-  //   } else {
-  //     classObj[key] = value;
-  //   }
-  // }
-  entries.forEach(([key, value]) => {
-    classObj[key] = _.isObject(value)
-      ? value.map((item) => backToClass(item))
-      : value;
-  });
+export {
+  createData, backToClass, readData, addItem,
 };
-export default createData;
